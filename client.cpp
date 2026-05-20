@@ -26,6 +26,9 @@ static int32_t readFull(int fd , char *buf , size_t n) {
         ssize_t rv = read(fd , buf , n);
 
         if(rv <= 0) {
+            if(errno == EINTR) { //If we were interrupted by a signal, do NOT exit!
+                continue;
+            }
             return -1; // -1 error, or  0 unexpected EOF
         }
 

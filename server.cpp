@@ -22,25 +22,7 @@ static void die(const char *msg) {
     abort();
 }
 
-static void doSomething(int connfd) {
-    char rbuf[64] = {};
 
-    /*ssize_t = signed 64bit int(0 -> INT_MAX) + -1 (maximum network function returns -1 as a error code)*/
-    ssize_t n = read(connfd, rbuf , sizeof(rbuf)-1); //read return int value > 0 and -1 for errors
-    if(n < 0) {
-        msg("read() error");
-        return;
-    }
-
-    std::cout << "Client says: " << rbuf << std::endl;
-
-    const char* wbuf = "world\n";
-
-    n = write(connfd , wbuf , strlen(wbuf));
-    if (n < 0) {
-        die("write() error"); 
-    }
-}
 
 /*When you call read(fd, buffer, 1000), you are asking the operating system for 1,000 bytes.
 Most beginners assume the OS will either give them exactly 1,000 bytes or return an error.
@@ -56,6 +38,9 @@ static int32_t readFull(int fd , char *buf , size_t n) {
         ssize_t rv = read(fd , buf , n);
 
         if(rv <= 0) {
+            if(errno == EINTR) { //If we were interrupted by a signal, do NOT exit!
+                continue;
+            }
             return -1; // -1 error, or  0 unexpected EOF
         }
 
