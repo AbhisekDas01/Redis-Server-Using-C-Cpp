@@ -5,6 +5,7 @@
 #include <cerrno> //global variable the kernel use to store the last error
 #include <cstdlib>
 #include <cstring>
+#include <cassert>
 
 
 
@@ -36,6 +37,50 @@ static void doSomething(int connfd) {
     if (n < 0) {
         die("write() error"); 
     }
+}
+
+/*When you call read(fd, buffer, 1000), you are asking the operating system for 1,000 bytes.
+Most beginners assume the OS will either give them exactly 1,000 bytes or return an error.
+
+This is entirely false. TCP does not preserve message boundaries.
+If the internet is being slow, the kernel might only have 400 bytes sitting in its network card buffer right now. It will hand you those 400 bytes and return the number 400.
+
+If you write your code like the "Bad example!", your server expects 1,000 bytes, gets 400, but immediately tries to read the message as if it were complete. The remaining 600 bytes will arrive a millisecond later, but your server has already moved on, causing the data stream to become completely corrupted.*/
+
+static int32_t readFull(int fd , char *buf , size_t n) {
+
+    while (n > 0){
+        ssize_t rv = read(fd , buf , n);
+
+        if(rv <= 0) {
+            return -1; // -1 error, or  0 unexpected EOF
+        }
+
+        assert((size_t)rv <= n); /*If the condition is TRUE: The program assumes everything is fine and quietly moves on to the next line of code. There is zero disruption.
+
+        If the condition is FALSE: The program instantly halts, prints the exact file name and line number to the screen, and crashes right there on the spot.*/
+        n -= (size_t)rv;
+        buf += rv; //move pointer to read from new slots
+        
+    }
+    return 0; 
+}
+
+static int32_t writeFull(int fd ,const char *buf , size_t n) {
+    while(n > 0) {
+
+        ssize_t rv = write(fd , buf , n);
+
+        if(rv <= 0) {
+            return -1;
+        }
+
+        assert((size_t)rv <= n);
+        n -= (size_t)rv;
+        buf += rv; //move pointer forward to write new places;
+
+    }
+    return 0;
 }
 
 int main() {
@@ -86,7 +131,15 @@ int main() {
             continue; //error 
         }
 
-        doSomething(connfd);
+        // doSomething(connfd);
+
+        /*Serve All the messages from one client before closing the connection and switching to other*/
+        while(true) {
+            int32_t err = one_request(connfd);
+            if(err) {
+                break;
+            }
+        }
 
         close(connfd);
     }
