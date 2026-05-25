@@ -205,7 +205,9 @@ static void handleRead(Conn *conn) {
     //Store the recieved data in a persistent storage (conn->incoming) 
     bufAppend(conn->incoming , buf , (size_t)rv);
 
-    //parse the stored request and genarate the response
+    // TCP Stream Parser: A fast client might bundle multiple requests into a single read().
+    // This loop aggressively extracts and handles every complete message frame back-to-back 
+    // until the buffer is empty or holds an incomplete packet, preventing pipeline deadlocks.
     while(tryOneRequest(conn)) {}
 
     //update readiness information
